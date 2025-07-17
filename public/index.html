@@ -1,35 +1,47 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Received Images</title>
-    <style>
-        body {
-            text-align: center;
-            font-family: sans-serif;
-        }
-        
-        img {
-            max-width: 80%;
-            margin: 10px;
-            border: 1px solid #ccc;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Received Images & Command Sender</title>
 </head>
-
 <body>
-    <h1>Received Images</h1>
-    <div id="images"></div>
+  <h1>Received Images</h1>
+  <button id="captureBtn">iPhoneで撮影して送信</button>
+  <div id="images"></div>
 
-    <script>
-        const ws = new WebSocket(`ws://${location.host}`);
-        ws.onmessage = (event) => {
-            const img = document.createElement('img');
-            img.src = event.data;
-            document.getElementById('images').prepend(img);
-        };
-    </script>
+  <script>
+    const ws = new WebSocket(`wss://${location.host}`);
+    ws.binaryType = "arraybuffer";
+
+    ws.onmessage = (event) => {
+      let dataStr;
+
+      if (event.data instanceof ArrayBuffer) {
+        const decoder = new TextDecoder("utf-8");
+        dataStr = decoder.decode(event.data);
+      } else if (typeof event.data === "string") {
+        dataStr = event.data;
+      } else {
+        console.warn("Unknown data type received:", event.data);
+        return;
+      }
+
+      // DataURLが来ている場合だけ画像として扱う簡易判定（例: "data:image/"で始まる）
+      if (dataStr.startsWith("data:image/")) {
+        const img = document.createElement("img");
+        img.src = dataStr;
+        img.style = "max-width:80%; margin:10px;";
+        document.getElementById("images").prepend(img);
+      } else {
+        // 画像以外のメッセージはログなどに出す（今回は無視）
+        console.log("Received non-image message:", dataStr);
+      }
+    };
+
+    // ボタン押下時に "capture" コマンドを送る
+    document.getElementById("captureBtn").onclick = () => {
+      ws.send("capture");
+    };
+  </script>
 </body>
-
 </html>
